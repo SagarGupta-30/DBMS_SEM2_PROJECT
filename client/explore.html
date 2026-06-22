@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Explore | SocialConnect</title>
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/components.css">
+  <style>
+    .explore-grid {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: var(--space-xl);
+    }
+    .hashtag-cloud-card {
+      position: sticky;
+      top: var(--space-xl);
+      height: fit-content;
+    }
+    .hashtag-cloud {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-sm);
+      margin-top: var(--space-md);
+    }
+    @media (max-width: 900px) {
+      .explore-grid {
+        grid-template-columns: 1fr;
+      }
+      .hashtag-cloud-card {
+        position: static;
+        margin-bottom: var(--space-lg);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-layout">
+    <main class="main-content">
+      <div class="page-header">
+        <h1 class="page-title text-gradient">Explore</h1>
+        <p class="page-subtitle">Search by hashtags to discover conversations.</p>
+      </div>
+
+      <div class="explore-grid">
+        <!-- Main Search View -->
+        <div>
+          <div class="search-box" style="margin-bottom: var(--space-xl);">
+            <form id="hashtag-search-form">
+              <input class="form-input" id="search-tag-input" placeholder="Type a hashtag (e.g. developer)..." required>
+            </form>
+          </div>
+
+          <div id="results-header" style="margin-bottom: var(--space-md); font-weight: 600; color: var(--text-secondary);"></div>
+
+          <div id="posts-results-container">
+            <div class="empty-state">
+              <div class="empty-state-icon">🔍</div>
+              <div class="empty-state-title">Search Hashtags</div>
+              <div class="empty-state-text">Search for a hashtag or click one from the cloud to view related posts.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sidebar trending tags cloud -->
+        <div class="hashtag-cloud-card">
+          <div class="card">
+            <h3>Trending Now</h3>
+            <p style="font-size: var(--font-size-xs); color: var(--text-tertiary); margin-top: 2px;">Most used tags this week</p>
+            <div class="hashtag-cloud" id="hashtag-cloud-container">
+              <div class="spinner spinner-sm"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/utils.js"></script>
+  <script>
+    if (!api.getToken()) {
+      window.location.href = 'index.html';
+    }
+
+    utils.loadNavigation('explore');
+
+    const searchForm = document.getElementById('hashtag-search-form');
+    const searchInput = document.getElementById('search-tag-input');
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialTag = urlParams.get('tag');
+
+    searchForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const tag = searchInput.value.trim().replace(/^#/, '');
+      if (tag) {
+        performSearch(tag);
+      }
+    });
+
+    async function performSearch(tag) {
+      // Update browser history URL state query
+      const newUrl = `${window.location.pathname}?tag=${encodeURIComponent(tag)}`;
+      window.history.pushState({ path: newUrl }, '', newUrl);
+
+      searchInput.value = `#${tag}`;
+      const container = document.getElementById('posts-results-container');
+      const header = document.getElementById('results-header');
+
+      header.textContent = `Search results for #${tag}`;
+      container.innerHTML = '<div class="loading-center"><div class="spinner"></div></div>';
+
+      try {
+        const posts = await api.get(`/hashtags/${encodeURIComponent(tag)}/posts`);
+        if (posts.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-state-icon">📭</div>
+              <div class="empty-state-title">No Posts Found</div>
+              <div class="empty-state-text">There are no posts containing the tag #${tag} yet.</div>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = posts.map(post => {
+          const initials = utils.getInitials(post.username);
+          const parsedContent = utils.parseHashtags(post.content);
+          
+          return `
+            <div class="post-card">
+              <div class="post-header">
+                <div class="avatar avatar-md" onclick="window.location.href='profile.html?id=${post.created_by}'">${initials}</div>
+                <div class="post-user-info">
+                  <div class="post-username" onclick="window.location.href='profile.html?id=${post.created_by}'">${post.username}</div>
+                  <div class="post-time">${utils.formatDate(post.created_at)}</div>
+                </div>
+              </div>
+              <div class="post-content">${parsedContent}</div>
+              ${post.media_url ? `<img class="post-image" src="${post.media_url}">` : ''}
+              <div class="post-actions">
+                <button class="post-action-btn ${post.is_liked ? 'liked' : ''}" style="pointer-events: none;">
+                  <span>❤️</span> ${post.likes_count}
+                </button>
+                <button class="post-action-btn" style="pointer-events: none;">
+                  <span>💬</span> ${post.comments_count}
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        container.innerHTML = `<div style="color: var(--error); padding: 20px 0;">Error searching posts: ${err.message}</div>`;
+      }
+    }
+
+    async function loadCloud() {
+      const container = document.getElementById('hashtag-cloud-container');
+      try {
+        const tags = await api.get('/hashtags/trending');
+        if (tags.length === 0) {
+          container.innerHTML = '<div class="empty-state-text">No active tags.</div>';
+          return;
+        }
+        container.innerHTML = tags.map(t => `
+          <span class="hashtag-chip" onclick="performSearch('${t.tag_name}')">#${t.tag_name} (${t.post_count})</span>
+        `).join('');
+      } catch (err) {
+        container.innerHTML = '<div class="empty-state-text">Failed to load tag cloud.</div>';
+      }
+    }
+
+    // Initialize
+    loadCloud();
+    if (initialTag) {
+      performSearch(initialTag);
+    }
+  </script>
+</body>
+</html>

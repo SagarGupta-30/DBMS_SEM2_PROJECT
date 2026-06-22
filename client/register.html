@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register | SocialConnect</title>
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/components.css">
+  <style>
+    body {
+      background: var(--gradient-hero);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-md);
+    }
+    .auth-container {
+      width: 100%;
+      max-width: 440px;
+      margin: auto;
+    }
+    .auth-logo {
+      text-align: center;
+      margin-bottom: var(--space-xl);
+    }
+    .auth-logo h1 {
+      font-size: var(--font-size-3xl);
+      font-weight: 800;
+      letter-spacing: -1px;
+    }
+    .auth-logo p {
+      color: var(--text-secondary);
+      font-size: var(--font-size-sm);
+      margin-top: var(--space-xs);
+    }
+    .auth-form-card {
+      background: rgba(20, 20, 30, 0.75);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-xl);
+      padding: var(--space-2xl) var(--space-xl);
+      box-shadow: var(--shadow-lg);
+    }
+    .auth-title {
+      font-size: var(--font-size-xl);
+      font-weight: 700;
+      margin-bottom: var(--space-lg);
+      text-align: center;
+    }
+    .auth-submit-btn {
+      margin-top: var(--space-lg);
+    }
+    .auth-footer {
+      text-align: center;
+      margin-top: var(--space-xl);
+      font-size: var(--font-size-sm);
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="auth-container">
+    <div class="auth-logo">
+      <h1 class="text-gradient">SocialConnect</h1>
+      <p>Connect. Discuss. Collaborate.</p>
+    </div>
+
+    <div class="auth-form-card">
+      <h2 class="auth-title">Create Account</h2>
+      
+      <form id="register-form">
+        <div class="form-group" style="margin-bottom: var(--space-md);">
+          <label class="form-label" for="username">Username</label>
+          <input class="form-input" type="text" id="username" placeholder="johndoe" required minlength="3" maxlength="50">
+        </div>
+
+        <div class="form-group" style="margin-bottom: var(--space-md);">
+          <label class="form-label" for="email">Email Address</label>
+          <input class="form-input" type="email" id="email" placeholder="you@example.com" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom: var(--space-md);">
+          <label class="form-label" for="password">Password</label>
+          <input class="form-input" type="password" id="password" placeholder="••••••••" required minlength="6">
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-full auth-submit-btn">
+          Sign Up
+        </button>
+      </form>
+
+      <div class="auth-footer">
+        Already have an account? <a href="index.html">Sign In</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/utils.js"></script>
+  <script>
+    if (api.getToken()) {
+      window.location.href = 'feed.html';
+    }
+
+    const registerForm = document.getElementById('register-form');
+    registerForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const username = document.getElementById('username').value;
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      
+      const submitBtn = registerForm.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<div class="spinner spinner-sm"></div> Creating account...';
+
+      try {
+        const response = await api.post('/auth/register', { username, email, password });
+        api.setToken(response.token);
+        api.setCurrentUser(response.user);
+        
+        utils.toast('Welcome to SocialConnect!', 'success');
+        setTimeout(() => {
+          window.location.href = 'feed.html';
+        }, 1000);
+      } catch (err) {
+        utils.toast(err.message || 'Registration failed. Try a different username/email.', 'error');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Sign Up';
+      }
+    });
+  </script>
+</body>
+</html>

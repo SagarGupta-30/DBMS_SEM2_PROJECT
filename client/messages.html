@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Messages | SocialConnect</title>
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/components.css">
+  <style>
+    .messaging-layout {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      height: calc(100vh - 2 * var(--space-xl));
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-xl);
+      overflow: hidden;
+      background: var(--bg-card);
+    }
+    .conversations-sidebar {
+      border-right: 1px solid var(--border-default);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+    .convos-header {
+      padding: var(--space-md);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .convos-list {
+      flex: 1;
+      overflow-y: auto;
+    }
+    .convo-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      padding: var(--space-md);
+      cursor: pointer;
+      transition: background var(--transition-fast);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .convo-item:hover {
+      background: var(--bg-tertiary);
+    }
+    .convo-item.active {
+      background: rgba(109, 10, 255, 0.1);
+      border-left: 3px solid var(--primary-400);
+    }
+    .convo-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .convo-name {
+      font-weight: 600;
+      font-size: var(--font-size-sm);
+      display: flex;
+      justify-content: space-between;
+    }
+    .convo-last {
+      font-size: var(--font-size-xs);
+      color: var(--text-tertiary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
+    }
+    .chat-area {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      background: var(--bg-secondary);
+    }
+    .chat-header {
+      padding: var(--space-md) var(--space-lg);
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border-default);
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+    }
+    .chat-body {
+      flex: 1;
+      padding: var(--space-lg);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-md);
+    }
+    .chat-footer {
+      padding: var(--space-md);
+      background: var(--bg-card);
+      border-top: 1px solid var(--border-default);
+    }
+    .chat-input-form {
+      display: flex;
+      gap: var(--space-sm);
+    }
+    .unread-badge {
+      background: var(--primary-500);
+      color: white;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: var(--radius-full);
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-layout">
+    <main class="main-content" style="max-width: 1200px; width: 100%;">
+      <div class="messaging-layout">
+        <!-- Sidebar Conversations -->
+        <div class="conversations-sidebar">
+          <div class="convos-header">
+            <h3 style="margin-bottom: var(--space-sm);">Chats</h3>
+            <div class="search-box">
+              <input class="form-input" id="search-users-input" placeholder="Search users to chat..." oninput="searchUsers(this.value)">
+            </div>
+            <!-- Search Results Area -->
+            <div id="search-results" class="hidden" style="position: absolute; width: 286px; background: var(--bg-elevated); border: 1px solid var(--border-default); border-radius: var(--radius-md); max-height: 200px; overflow-y: auto; z-index: 10;"></div>
+          </div>
+          <div class="convos-list" id="conversations-container">
+            <div class="loading-center">
+              <div class="spinner spinner-sm"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chat Frame -->
+        <div class="chat-area">
+          <div id="chat-frame-empty" class="empty-state" style="margin: auto;">
+            <div class="empty-state-icon">💬</div>
+            <div class="empty-state-title">Select a Conversation</div>
+            <div class="empty-state-text">Choose from your active chats or search for a user to start direct messaging.</div>
+          </div>
+
+          <div id="chat-frame-active" class="hidden" style="display: flex; flex-direction: column; height: 100%;">
+            <div class="chat-header">
+              <div class="avatar avatar-sm" id="chat-header-avatar"></div>
+              <div>
+                <h4 id="chat-header-name" style="margin: 0; font-size: var(--font-size-md);">Select User</h4>
+                <div id="chat-header-handle" style="font-size: var(--font-size-xs); color: var(--text-tertiary);">@handle</div>
+              </div>
+            </div>
+            
+            <div class="chat-body" id="chat-messages-container"></div>
+
+            <div class="chat-footer">
+              <form class="chat-input-form" id="send-message-form">
+                <input class="form-input" id="message-content" placeholder="Type a message..." required autocomplete="off">
+                <button type="submit" class="btn btn-primary">Send</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/utils.js"></script>
+  <script>
+    if (!api.getToken()) {
+      window.location.href = 'index.html';
+    }
+
+    utils.loadNavigation('messages');
+
+    let activeChatUserId = null;
+    let pollInterval = null;
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialUserId = urlParams.get('userId') ? parseInt(urlParams.get('userId')) : null;
+
+    // Load Conversations list
+    async function loadConversations() {
+      const container = document.getElementById('conversations-container');
+      try {
+        const convos = await api.get('/messages/conversations');
+        if (convos.length === 0) {
+          container.innerHTML = '<div class="empty-state-text" style="padding: var(--space-md);">No active chats.</div>';
+          return;
+        }
+
+        container.innerHTML = convos.map(c => {
+          const initials = utils.getInitials(c.username);
+          const activeClass = activeChatUserId === c.user_id ? 'active' : '';
+
+          return `
+            <div class="convo-item ${activeClass}" onclick="selectConversation(${c.user_id}, '${c.username}')">
+              <div class="avatar avatar-sm">${initials}</div>
+              <div class="convo-info">
+                <div class="convo-name">
+                  <span>${c.username}</span>
+                </div>
+                <div class="convo-last">${c.last_message}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        container.innerHTML = '<div class="empty-state-text">Failed to load chats.</div>';
+      }
+    }
+
+    // Select a conversation to load the message history
+    async function selectConversation(userId, username) {
+      activeChatUserId = userId;
+      
+      // Update UI active states
+      const items = document.querySelectorAll('.convo-item');
+      items.forEach(i => i.classList.remove('active'));
+      loadConversations(); // refresh
+
+      document.getElementById('chat-frame-empty').classList.add('hidden');
+      document.getElementById('chat-frame-active').classList.remove('hidden');
+
+      // Populate Header details
+      document.getElementById('chat-header-name').textContent = username;
+      document.getElementById('chat-header-handle').textContent = `@${username}`;
+      const headerAvatar = document.getElementById('chat-header-avatar');
+      headerAvatar.innerHTML = utils.getInitials(username);
+
+      // Scroll to bottom
+      await loadMessages();
+      const chatBody = document.getElementById('chat-messages-container');
+      chatBody.scrollTop = chatBody.scrollHeight;
+
+      // Start Polling loop (every 3 seconds)
+      if (pollInterval) clearInterval(pollInterval);
+      pollInterval = setInterval(loadMessages, 3000);
+    }
+
+    // Load Message Thread
+    async function loadMessages() {
+      if (!activeChatUserId) return;
+      const chatBody = document.getElementById('chat-messages-container');
+      const isAtBottom = chatBody.scrollTop + chatBody.clientHeight >= chatBody.scrollHeight - 10;
+
+      try {
+        const messages = await api.get(`/messages/${activeChatUserId}`);
+        
+        let html = '';
+        if (messages.length === 0) {
+          html = '<div class="empty-state-text" style="margin: auto;">Send a message to start the conversation!</div>';
+        } else {
+          html = messages.map(m => {
+            const side = m.sender === api.getCurrentUser().userId ? 'sent' : 'received';
+            return `
+              <div class="message-bubble ${side}">
+                <div>${m.content}</div>
+                <div class="message-time ${side}">${new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+              </div>
+            `;
+          }).join('');
+        }
+
+        chatBody.innerHTML = html;
+        if (isAtBottom) {
+          chatBody.scrollTop = chatBody.scrollHeight;
+        }
+      } catch (err) {
+        console.error('Failed to load message thread:', err);
+      }
+    }
+
+    // Send Message
+    document.getElementById('send-message-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const input = document.getElementById('message-content');
+      const content = input.value.trim();
+      if (!content || !activeChatUserId) return;
+
+      try {
+        await api.post('/messages', { receiverId: activeChatUserId, content });
+        input.value = '';
+        await loadMessages();
+        const chatBody = document.getElementById('chat-messages-container');
+        chatBody.scrollTop = chatBody.scrollHeight;
+        loadConversations();
+      } catch (err) {
+        utils.toast(err.message, 'error');
+      }
+    });
+
+    // Search Users to Chat
+    async function searchUsers(q) {
+      const resultsBox = document.getElementById('search-results');
+      if (q.trim().length < 2) {
+        resultsBox.classList.add('hidden');
+        return;
+      }
+
+      try {
+        const users = await api.get(`/users/search?q=${encodeURIComponent(q)}`);
+        if (users.length === 0) {
+          resultsBox.innerHTML = '<div style="padding: 10px; font-size: 12px; color: var(--text-tertiary);">No users found.</div>';
+        } else {
+          // Exclude self from search
+          const filtered = users.filter(u => u.user_id !== api.getCurrentUser().userId);
+          resultsBox.innerHTML = filtered.map(u => `
+            <div class="user-list-item" onclick="startNewChat(${u.user_id}, '${u.username}')">
+              <div class="avatar avatar-sm">${utils.getInitials(u.username)}</div>
+              <div class="user-list-info">
+                <div class="user-list-name" style="font-size: 12px;">${u.username}</div>
+              </div>
+            </div>
+          `).join('');
+        }
+        resultsBox.classList.remove('hidden');
+      } catch (err) {
+        console.error('User search failed:', err);
+      }
+    }
+
+    function startNewChat(userId, username) {
+      document.getElementById('search-results').classList.add('hidden');
+      document.getElementById('search-users-input').value = '';
+      selectConversation(userId, username);
+    }
+
+    // Cleanup interval on page leave
+    window.addEventListener('beforeunload', () => {
+      if (pollInterval) clearInterval(pollInterval);
+    });
+
+    // Initialize Page
+    async function init() {
+      await loadConversations();
+      if (initialUserId) {
+        try {
+          const profile = await api.get(`/users/${initialUserId}`);
+          selectConversation(profile.user_id, profile.username);
+        } catch (err) {
+          console.error('Could not open initial chat user:', err);
+        }
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

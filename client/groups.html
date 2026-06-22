@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Groups | SocialConnect</title>
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/components.css">
+  <style>
+    .groups-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: var(--space-md);
+    }
+    .group-card {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+    .group-desc {
+      color: var(--text-secondary);
+      font-size: var(--font-size-sm);
+      margin-top: var(--space-sm);
+      margin-bottom: var(--space-md);
+      flex: 1;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .group-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: var(--font-size-xs);
+      color: var(--text-tertiary);
+      border-top: 1px solid var(--border-subtle);
+      padding-top: var(--space-sm);
+      margin-top: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-layout">
+    <main class="main-content">
+      <div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h1 class="page-title text-gradient">Groups</h1>
+          <p class="page-subtitle">Join clubs, collaborate, and share interests.</p>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="openCreateModal()">Create Group</button>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" id="tab-all" onclick="switchTab('all')">All Groups</button>
+        <button class="tab" id="tab-joined" onclick="switchTab('joined')">Joined</button>
+      </div>
+
+      <div id="groups-list" class="groups-grid">
+        <div class="loading-center">
+          <div class="spinner"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Create Group Modal -->
+  <div class="modal-overlay hidden" id="create-group-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Create New Group</h3>
+        <button class="modal-close" onclick="closeCreateModal()">&times;</button>
+      </div>
+      <form id="create-group-form">
+        <div class="form-group" style="margin-bottom: var(--space-md);">
+          <label class="form-label" for="group-name">Group Name</label>
+          <input class="form-input" id="group-name" placeholder="e.g. Design Enthusiasts" required maxlength="100">
+        </div>
+        <div class="form-group" style="margin-bottom: var(--space-md);">
+          <label class="form-label" for="group-desc">Description</label>
+          <textarea class="form-input" id="group-desc" placeholder="Describe the purpose of this group..." rows="4"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary btn-full">Create Group</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Group Members Modal -->
+  <div class="modal-overlay hidden" id="members-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title" id="members-modal-title">Group Members</h3>
+        <button class="modal-close" onclick="closeMembersModal()">&times;</button>
+      </div>
+      <div id="members-list-container" style="max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: var(--space-sm);"></div>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/utils.js"></script>
+  <script>
+    if (!api.getToken()) {
+      window.location.href = 'index.html';
+    }
+
+    utils.loadNavigation('groups');
+
+    let currentView = 'all'; // 'all' or 'joined'
+    let groupsData = [];
+
+    async function fetchGroups() {
+      const container = document.getElementById('groups-list');
+      container.innerHTML = '<div class="loading-center"><div class="spinner"></div></div>';
+      
+      try {
+        groupsData = await api.get('/groups');
+        renderGroups();
+      } catch (err) {
+        container.innerHTML = `<div class="empty-state-title" style="color: var(--error);">Error: ${err.message}</div>`;
+      }
+    }
+
+    function renderGroups() {
+      const container = document.getElementById('groups-list');
+      
+      // Filter list based on tabs
+      const filtered = currentView === 'joined' 
+        ? groupsData.filter(g => g.is_member) 
+        : groupsData;
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state" style="grid-column: 1 / -1;">
+            <div class="empty-state-icon">👥</div>
+            <div class="empty-state-title">No Groups Found</div>
+            <div class="empty-state-text">
+              ${currentView === 'joined' ? 'You have not joined any groups yet.' : 'Be the first to create a group!'}
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filtered.map(g => {
+        const actionBtn = g.is_member 
+          ? `<button class="btn btn-secondary btn-sm" onclick="leaveGroup(${g.group_id})">Leave</button>` 
+          : `<button class="btn btn-primary btn-sm" onclick="joinGroup(${g.group_id})">Join Group</button>`;
+          
+        return `
+          <div class="card group-card">
+            <h3 style="font-size: var(--font-size-lg);">${g.group_name}</h3>
+            <p class="group-desc">${g.description || 'No description provided.'}</p>
+            <div style="margin-bottom: var(--space-md); display: flex; gap: var(--space-sm);">
+              ${actionBtn}
+              <button class="btn btn-outline btn-sm" onclick="viewMembers(${g.group_id}, '${g.group_name}')">Members</button>
+            </div>
+            <div class="group-meta">
+              <span>Created by: @${g.creator_username || 'unknown'}</span>
+              <span class="badge badge-accent">${g.member_count} members</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function switchTab(tab) {
+      currentView = tab;
+      document.getElementById('tab-all').classList.toggle('active', tab === 'all');
+      document.getElementById('tab-joined').classList.toggle('active', tab === 'joined');
+      renderGroups();
+    }
+
+    // Join Group
+    async function joinGroup(id) {
+      try {
+        await api.post(`/groups/${id}/join`);
+        utils.toast('Joined group successfully!');
+        fetchGroups();
+      } catch (err) {
+        utils.toast(err.message, 'error');
+      }
+    }
+
+    // Leave Group
+    async function leaveGroup(id) {
+      if (!confirm('Are you sure you want to leave this group?')) return;
+      try {
+        await api.delete(`/groups/${id}/join`);
+        utils.toast('Left group successfully.');
+        fetchGroups();
+      } catch (err) {
+        utils.toast(err.message, 'error');
+      }
+    }
+
+    // Modal creation handlers
+    function openCreateModal() {
+      document.getElementById('create-group-modal').classList.remove('hidden');
+    }
+
+    function closeCreateModal() {
+      document.getElementById('create-group-modal').classList.add('hidden');
+    }
+
+    document.getElementById('create-group-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const groupName = document.getElementById('group-name').value;
+      const description = document.getElementById('group-desc').value;
+
+      try {
+        await api.post('/groups', { groupName, description });
+        utils.toast('Group created successfully!', 'success');
+        closeCreateModal();
+        document.getElementById('create-group-form').reset();
+        fetchGroups();
+      } catch (err) {
+        utils.toast(err.message, 'error');
+      }
+    });
+
+    // View Members
+    async function viewMembers(id, name) {
+      const container = document.getElementById('members-list-container');
+      document.getElementById('members-modal-title').textContent = `${name} Members`;
+      document.getElementById('members-modal').classList.remove('hidden');
+      container.innerHTML = '<div class="loading-center"><div class="spinner spinner-sm"></div></div>';
+
+      try {
+        const members = await api.get(`/groups/${id}/members`);
+        if (members.length === 0) {
+          container.innerHTML = '<div class="empty-state-text">No members found.</div>';
+          return;
+        }
+
+        container.innerHTML = members.map(m => `
+          <div class="user-list-item" onclick="window.location.href='profile.html?id=${m.user_id}'">
+            <div class="avatar avatar-sm">${utils.getInitials(m.username)}</div>
+            <div class="user-list-info">
+              <div class="user-list-name">${m.username}</div>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        container.innerHTML = `<div style="color: var(--error);">Error: ${err.message}</div>`;
+      }
+    }
+
+    function closeMembersModal() {
+      document.getElementById('members-modal').classList.add('hidden');
+    }
+
+    // Initial Fetch
+    fetchGroups();
+  </script>
+</body>
+</html>

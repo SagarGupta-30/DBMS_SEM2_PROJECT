@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Feed | SocialConnect</title>
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/components.css">
+  <style>
+    /* Twitter/X Style Layout Overrides */
+    .feed-layout-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 350px;
+      gap: 0;
+      max-width: 1050px;
+      margin: 0 auto;
+    }
+    
+    .feed-stream {
+      border-left: 1px solid var(--border-subtle);
+      border-right: 1px solid var(--border-subtle);
+      min-height: 100vh;
+      background: var(--bg-card); /* Reduces empty black areas */
+    }
+    
+    .trending-panel {
+      position: sticky;
+      top: var(--space-xl);
+      height: fit-content;
+      padding-left: var(--space-xl);
+      padding-top: var(--space-lg);
+    }
+
+    .create-post-box {
+      border: none !important;
+      border-bottom: 1px solid var(--border-subtle) !important;
+      border-radius: 0 !important;
+      margin-bottom: 0 !important;
+      padding: var(--space-xl) var(--space-md) !important;
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+
+    /* Stories Row */
+    .stories-container {
+      display: flex;
+      gap: var(--space-md);
+      padding: var(--space-lg);
+      overflow-x: auto;
+      border-bottom: 1px solid var(--border-subtle);
+      scrollbar-width: none;
+    }
+    .stories-container::-webkit-scrollbar { display: none; }
+    
+    .story-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      min-width: 60px;
+    }
+    
+    .story-name {
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+      max-width: 60px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Suggested Users */
+    .suggested-user-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-sm);
+    }
+
+    /* Loading Skeletons */
+    .skeleton {
+      animation: pulse 1.5s infinite ease-in-out;
+      background: var(--bg-tertiary);
+      border-radius: var(--radius-sm);
+    }
+    .skeleton-avatar { width: 48px; height: 48px; border-radius: 50%; }
+    .skeleton-line { height: 14px; margin-bottom: 8px; width: 100%; }
+    .skeleton-line.short { width: 40%; }
+    .skeleton-line.tiny { width: 20%; height: 10px; }
+    
+    @keyframes pulse {
+      0% { opacity: 0.5; }
+      50% { opacity: 0.2; }
+      100% { opacity: 0.5; }
+    }
+
+    /* Trending Badges */
+    .trending-badge-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-sm);
+      margin-top: var(--space-md);
+    }
+
+    .trending-badge {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      box-shadow: none;
+    }
+    .trending-badge:hover {
+      background: var(--bg-card-hover);
+      transform: none;
+      box-shadow: none;
+      color: var(--text-primary);
+    }
+    .trending-badge .count {
+      background: transparent;
+      color: var(--text-tertiary);
+      font-size: 0.8rem;
+    }
+
+    @media (max-width: 992px) {
+      .feed-layout-grid {
+        grid-template-columns: 1fr;
+      }
+      .trending-panel {
+        display: none;
+      }
+      .feed-stream {
+        border-left: none;
+        border-right: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-layout">
+    <main class="main-content">
+      <div class="page-header">
+        <h1 class="page-title text-gradient">Your Feed</h1>
+        <p class="page-subtitle">Stay connected with your community.</p>
+      </div>
+
+      <div class="feed-layout-grid">
+        <!-- Main Feed Stream -->
+        <div class="feed-stream">
+          <!-- Stories Row -->
+          <div class="stories-container" id="stories-container">
+            <div class="skeleton skeleton-avatar" style="min-width: 60px; height: 60px;"></div>
+            <div class="skeleton skeleton-avatar" style="min-width: 60px; height: 60px;"></div>
+            <div class="skeleton skeleton-avatar" style="min-width: 60px; height: 60px;"></div>
+          </div>
+
+          <!-- Create Post Card -->
+          <div class="create-post-box">
+            <div class="create-post-header">
+              <div class="avatar avatar-md" id="current-user-avatar"></div>
+              <span style="font-weight: 600;">Share something...</span>
+            </div>
+            <form id="create-post-form">
+              <textarea class="create-post-textarea" id="post-content" placeholder="What is on your mind? Use #hashtags to categorize!" required maxlength="500"></textarea>
+              <div class="form-group" style="margin-top: var(--space-sm);">
+                <input class="form-input" type="url" id="post-image-url" placeholder="Optional image URL (https://...)">
+              </div>
+              <div class="create-post-footer">
+                <span class="char-count" id="char-count">0 / 500</span>
+                <button type="submit" class="btn btn-primary btn-sm" id="post-submit-btn">Post Now</button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Feed Posts Container -->
+          <div id="posts-container">
+            <!-- Loading Skeletons injected by JS -->
+          </div>
+        </div>
+
+        <!-- Right Side Panel: Trending Hashtags -->
+        <div class="trending-panel">
+          <div class="card" style="margin-bottom: var(--space-xl);">
+            <h3 style="margin-bottom: var(--space-md); font-size: 1rem; color: var(--text-secondary);">Suggested for you</h3>
+            <div id="suggested-users-container">
+              <div class="skeleton skeleton-line"></div>
+              <div class="skeleton skeleton-line short"></div>
+            </div>
+          </div>
+          
+          <div class="card">
+            <h3 style="margin-bottom: var(--space-md); font-size: 1rem; color: var(--text-secondary);">Trending Tags</h3>
+            <div id="trending-tags-container" class="trending-badge-container">
+              <div class="skeleton skeleton-line"></div>
+              <div class="skeleton skeleton-line short"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/utils.js"></script>
+  <script>
+    // Verify auth
+    if (!api.getToken()) {
+      window.location.href = 'index.html';
+    }
+
+    // Initialize Layout
+    utils.loadNavigation('feed');
+
+    const user = api.getCurrentUser();
+    const initials = utils.getInitials(user.username);
+    const avatarEl = document.getElementById('current-user-avatar');
+    avatarEl.innerHTML = initials;
+
+    // Track textarea character counts
+    const textarea = document.getElementById('post-content');
+    const charCount = document.getElementById('char-count');
+    textarea.addEventListener('input', () => {
+      charCount.textContent = `${textarea.value.length} / 500`;
+    });
+
+    // Create post
+    const postForm = document.getElementById('create-post-form');
+    postForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const content = document.getElementById('post-content').value;
+      const imageUrl = document.getElementById('post-image-url').value;
+      const submitBtn = document.getElementById('post-submit-btn');
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Posting...';
+
+      try {
+        await api.post('/posts', { content, imageUrl });
+        utils.toast('Post published successfully!', 'success');
+        postForm.reset();
+        charCount.textContent = '0 / 500';
+        fetchFeed();
+        fetchTrending();
+      } catch (err) {
+        utils.toast(err.message, 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Post Now';
+      }
+    });
+
+    // Fetch trending tags
+    async function fetchTrending() {
+      const container = document.getElementById('trending-tags-container');
+      try {
+        const tags = await api.get('/hashtags/trending');
+        if (tags.length === 0) {
+          container.innerHTML = '<div class="empty-state-text">No recent tags.</div>';
+          return;
+        }
+        container.innerHTML = tags.map(t => `
+          <a href="explore.html?tag=${t.tag_name}" class="trending-badge">
+            #${t.tag_name} <span class="count">${t.post_count}</span>
+          </a>
+        `).join('');
+      } catch (err) {
+        console.error('Failed to load trending hashtags:', err);
+      }
+    }
+
+    // Fetch and render feed posts
+    async function fetchFeed() {
+      const container = document.getElementById('posts-container');
+      
+      // Inject Skeletons
+      container.innerHTML = Array(3).fill(0).map(() => `
+        <div class="post-card" style="pointer-events: none;">
+          <div class="post-header">
+            <div class="skeleton skeleton-avatar"></div>
+            <div style="flex: 1;">
+              <div class="skeleton skeleton-line short"></div>
+              <div class="skeleton skeleton-line tiny"></div>
+            </div>
+          </div>
+          <div style="flex: 1; margin-top: 12px;">
+            <div class="skeleton skeleton-line"></div>
+            <div class="skeleton skeleton-line short"></div>
+          </div>
+        </div>
+      `).join('');
+
+      try {
+        const posts = await api.get('/posts/feed');
+        if (posts.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-state-icon">📸</div>
+              <div class="empty-state-title">No Posts Yet</div>
+              <div class="empty-state-text">Follow users to see their photos and videos here.</div>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = '';
+        for (const post of posts) {
+          const postEl = document.createElement('article');
+          postEl.className = 'post-card';
+          postEl.dataset.id = post.post_id;
+
+          const pInitials = utils.getInitials(post.username);
+          const parsedContent = utils.parseHashtags(post.content);
+          
+          const isOwner = post.created_by === user.userId;
+          const deleteBtn = isOwner 
+            ? `<button class="post-delete-btn" onclick="deletePost(${post.post_id})">🗑️</button>` 
+            : '';
+
+          postEl.innerHTML = `
+            <div class="post-header">
+              <div class="story-ring" onclick="window.location.href='profile.html?id=${post.created_by}'" style="cursor: pointer;">
+                <div class="avatar avatar-md">${pInitials}</div>
+              </div>
+              <div class="post-user-info">
+                <div class="post-username" onclick="window.location.href='profile.html?id=${post.created_by}'">${post.username}</div>
+              </div>
+              ${deleteBtn}
+            </div>
+            
+            ${post.media_url ? `<img class="post-image" src="${post.media_url}" alt="Post image">` : ''}
+            
+            <div class="post-actions">
+              <button class="post-action-btn ${post.is_liked ? 'liked' : ''}" onclick="toggleLike(this, ${post.post_id})">
+                <span>${post.is_liked ? '❤️' : '🤍'}</span>
+              </button>
+              <button class="post-action-btn" onclick="toggleComments(${post.post_id})">
+                <span>💬</span>
+              </button>
+              <button class="post-action-btn" onclick="utils.toast('Share feature coming soon!', 'info')">
+                <span>✈️</span>
+              </button>
+            </div>
+            
+            <div class="likes-text"><span class="like-count">${post.likes_count}</span> likes</div>
+            
+            <div class="post-content">
+              <span class="post-username" style="margin-right: 8px;" onclick="window.location.href='profile.html?id=${post.created_by}'">${post.username}</span>
+              ${parsedContent}
+            </div>
+            
+            ${post.comments_count > 0 ? `<div class="comments-view-all" onclick="toggleComments(${post.post_id})">View all ${post.comments_count} comments</div>` : ''}
+            <div class="post-time" style="margin-bottom: 8px;">${utils.formatDate(post.created_at)}</div>
+
+            <!-- Comments Area (Hidden by default) -->
+            <div class="comments-section hidden" id="comments-${post.post_id}">
+              <div class="comments-list" id="comments-list-${post.post_id}"></div>
+              <form class="comment-input-row" onsubmit="submitComment(event, ${post.post_id})">
+                <input class="form-input" placeholder="Add a comment..." required style="border: none; border-top: 1px solid var(--border-subtle); border-radius: 0; background: transparent; padding: 12px 0;">
+                <button type="submit" class="btn btn-ghost btn-sm" style="color: var(--primary-500); font-weight: 600;">Post</button>
+              </form>
+            </div>
+          `;
+          container.appendChild(postEl);
+        }
+      } catch (err) {
+        container.innerHTML = `<div class="empty-state-title" style="color: var(--error);">Error: ${err.message}</div>`;
+      }
+    }
+
+    // Toggle post like
+    async function toggleLike(btn, postId) {
+      const isLiked = btn.classList.contains('liked');
+      const postCard = btn.closest('.post-card');
+      const countEl = postCard.querySelector('.like-count');
+      let currentCount = parseInt(countEl.textContent);
+
+      try {
+        if (isLiked) {
+          await api.delete(`/posts/${postId}/like`);
+          btn.classList.remove('liked');
+          btn.querySelector('span').textContent = '🤍';
+          countEl.textContent = currentCount - 1;
+        } else {
+          await api.post(`/posts/${postId}/like`);
+          btn.classList.add('liked');
+          btn.querySelector('span').textContent = '❤️';
+          countEl.textContent = currentCount + 1;
+        }
+      } catch (err) {
+        utils.toast(err.message, 'error');
+      }
+    }
+
+    // Toggle comments visibility
+    async function toggleComments(postId) {
+      const commentSec = document.getElementById(`comments-${postId}`);
+      commentSec.classList.toggle('hidden');
+      if (!commentSec.classList.contains('hidden')) {
+        loadComments(postId);
+      }
+    }
+
+    // Load comments
+    async function loadComments(postId) {
+      const list = document.getElementById(`comments-list-${postId}`);
+      list.innerHTML = '<div class="loading-center"><div class="spinner spinner-sm"></div></div>';
+      try {
+        const comments = await api.get(`/posts/${postId}/comments`);
+        if (comments.length === 0) {
+          list.innerHTML = '<div class="empty-state-text" style="padding: 10px 0;">No comments yet. Be the first to comment!</div>';
+          return;
+        }
+        list.innerHTML = comments.map(c => {
+          const cInitials = utils.getInitials(c.username);
+          const isCommentOwner = c.commented_by === user.userId;
+          const deleteCommentBtn = isCommentOwner 
+            ? `<button class="post-delete-btn" onclick="deleteComment(${c.comment_id}, ${postId})" style="font-size: 10px;">🗑️</button>` 
+            : '';
+
+          return `
+            <div class="comment-item">
+              <div class="avatar avatar-sm" onclick="window.location.href='profile.html?id=${c.commented_by}'">${cInitials}</div>
+              <div class="comment-body">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span class="comment-username" onclick="window.location.href='profile.html?id=${c.commented_by}'">${c.username}</span>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="comment-time">${utils.formatDate(c.created_at)}</span>
+                    ${deleteCommentBtn}
+                  </div>
+                </div>
+                <div class="comment-text">${c.content}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        list.innerHTML = `<div style="color: var(--error); font-size: 12px;">Failed to load comments.</div>`;
+      }
+    }
+
+    // Submit comment
+    async function submitComment(e, postId) {
+      e.preventDefault();
+      const form = e.target;
+      const input = form.querySelector('input');
+      const content = input.value.trim();
+      const replyBtn = form.querySelector('button');
+
+      replyBtn.disabled = true;
+
+      try {
+        await api.post(`/posts/${postId}/comments`, { content });
+        input.value = '';
+        loadComments(postId);
+        // Update view-all text
+        const postCard = document.querySelector(`.post-card[data-id="${postId}"]`);
+        const viewAll = postCard.querySelector('.comments-view-all');
+        if (viewAll) {
+          const match = viewAll.textContent.match(/\d+/);
+          const count = match ? parseInt(match[0]) + 1 : 1;
+          viewAll.textContent = `View all ${count} comments`;
+        } else {
+          // Create view-all link if first comment
+          const timeEl = postCard.querySelector('.post-time');
+          if (timeEl) {
+            const newViewAll = document.createElement('div');
+            newViewAll.className = 'comments-view-all';
+            newViewAll.textContent = 'View all 1 comments';
+            newViewAll.onclick = () => toggleComments(postId);
+            timeEl.parentNode.insertBefore(newViewAll, timeEl);
+          }
+        }
+      } catch (err) {
+        utils.toast(err.message, 'error');
+      } finally {
+        replyBtn.disabled = false;
+      }
+    }
+
+    // Delete comment
+    async function deleteComment(commentId, postId) {
+      if (!confirm('Are you sure you want to delete this comment?')) return;
+      try {
+        await api.delete(`/comments/${commentId}`);
+        utils.toast('Comment deleted', 'success');
+        loadComments(postId);
+        // Update view-all text
+        const postCard = document.querySelector(`.post-card[data-id="${postId}"]`);
+        const viewAll = postCard.querySelector('.comments-view-all');
+        if (viewAll) {
+          const match = viewAll.textContent.match(/\d+/);
+          const count = match ? Math.max(0, parseInt(match[0]) - 1) : 0;
+          if (count > 0) {
+            viewAll.textContent = `View all ${count} comments`;
+          } else {
+            viewAll.remove();
+          }
+        }
+      } catch (err) {
+        utils.toast(err.message, 'error');
+      }
+    }
+
+    // Delete post
+    async function deletePost(postId) {
+      if (!confirm('Are you sure you want to delete this post?')) return;
+      try {
+        await api.delete(`/posts/${postId}`);
+        utils.toast('Post deleted successfully!', 'success');
+        fetchFeed();
+        fetchTrending();
+      } catch (err) {
+        utils.toast(err.message, 'error');
+      }
+    }
+
+    // Fetch Stories (Following users)
+    async function fetchStories() {
+      const container = document.getElementById('stories-container');
+      try {
+        let following = await api.get(`/users/${user.userId}/following`);
+        
+        // Fallback to random users if not following anyone
+        if (following.length === 0) {
+          following = await api.get('/users/search?q=a');
+        }
+
+        container.innerHTML = following.slice(0, 8).map(f => `
+          <div class="story-item" onclick="window.location.href='profile.html?id=${f.following_id || f.user_id}'">
+            <div class="story-ring">
+              <div class="avatar" style="width: 56px; height: 56px;">${utils.getInitials(f.username)}</div>
+            </div>
+            <span class="story-name">${f.username}</span>
+          </div>
+        `).join('');
+      } catch (err) {
+        container.innerHTML = ''; // Hide on error
+      }
+    }
+
+    // Fetch Suggested Users
+    async function fetchSuggested() {
+      const container = document.getElementById('suggested-users-container');
+      try {
+        const users = await api.get('/users/search?q=s'); // random search query for suggestions
+        const suggestions = users.filter(u => u.user_id !== user.userId).slice(0, 5);
+        
+        if (suggestions.length === 0) {
+          container.innerHTML = '<div class="empty-state-text">No suggestions</div>';
+          return;
+        }
+        
+        container.innerHTML = suggestions.map(u => `
+          <div class="suggested-user-item">
+            <div style="display: flex; align-items: center; gap: 8px; cursor: pointer;" onclick="window.location.href='profile.html?id=${u.user_id}'">
+              <div class="avatar avatar-sm">${utils.getInitials(u.username)}</div>
+              <div style="display: flex; flex-direction: column;">
+                <span style="font-weight: 600; font-size: 0.85rem;">${u.username}</span>
+                <span style="font-size: 0.75rem; color: var(--text-tertiary);">Suggested for you</span>
+              </div>
+            </div>
+            <button class="btn btn-ghost btn-sm" style="color: var(--primary-500); padding: 4px;" onclick="window.location.href='profile.html?id=${u.user_id}'">Follow</button>
+          </div>
+        `).join('');
+      } catch (err) {
+        container.innerHTML = '';
+      }
+    }
+
+    // Initial page load
+    fetchFeed();
+    fetchTrending();
+    fetchStories();
+    fetchSuggested();
+  </script>
+</body>
+</html>

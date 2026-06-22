@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard | SocialConnect</title>
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/components.css">
+  <style>
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: var(--space-lg);
+      margin-top: var(--space-xl);
+    }
+    
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-xl);
+      padding: var(--space-xl);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+      box-shadow: var(--shadow-sm);
+    }
+    
+    .stat-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-lg);
+      border-color: var(--primary-400);
+    }
+    
+    .stat-icon {
+      font-size: 2rem;
+      margin-bottom: var(--space-md);
+      background: rgba(109, 10, 255, 0.1);
+      height: 60px;
+      width: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius-full);
+      color: var(--primary-400);
+    }
+    
+    .stat-value {
+      font-size: var(--font-size-3xl);
+      font-weight: 800;
+      color: var(--text-primary);
+      margin-bottom: var(--space-xs);
+    }
+    
+    .stat-label {
+      font-size: var(--font-size-sm);
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-layout">
+    <main class="main-content">
+      <div class="page-header">
+        <h1 class="page-title text-gradient">Admin Dashboard</h1>
+        <p class="page-subtitle">Platform overview and aggregate statistics.</p>
+      </div>
+
+      <div id="admin-container">
+        <div class="loading-center">
+          <div class="spinner"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/utils.js"></script>
+  <script>
+    if (!api.getToken()) {
+      window.location.href = 'index.html';
+    }
+
+    // Set sidebar active state to 'admin'
+    utils.loadNavigation('admin');
+
+    async function loadStats() {
+      const container = document.getElementById('admin-container');
+      
+      try {
+        const stats = await api.get('/admin/stats');
+        
+        container.innerHTML = `
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon">👥</div>
+              <div class="stat-value">${stats.totalUsers.toLocaleString()}</div>
+              <div class="stat-label">Total Users</div>
+            </div>
+            
+            <div class="stat-card">
+              <div class="stat-icon">📝</div>
+              <div class="stat-value">${stats.totalPosts.toLocaleString()}</div>
+              <div class="stat-label">Total Posts</div>
+            </div>
+            
+            <div class="stat-card">
+              <div class="stat-icon">💬</div>
+              <div class="stat-value">${stats.totalComments.toLocaleString()}</div>
+              <div class="stat-label">Total Comments</div>
+            </div>
+            
+            <div class="stat-card">
+              <div class="stat-icon">✉️</div>
+              <div class="stat-value">${stats.totalMessages.toLocaleString()}</div>
+              <div class="stat-label">Direct Messages</div>
+            </div>
+            
+            <div class="stat-card">
+              <div class="stat-icon">🌐</div>
+              <div class="stat-value">${stats.totalGroups.toLocaleString()}</div>
+              <div class="stat-label">Active Groups</div>
+            </div>
+          </div>
+        `;
+      } catch (err) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">⚠️</div>
+            <div class="empty-state-title">Failed to load statistics</div>
+            <div class="empty-state-text">${err.message}</div>
+          </div>
+        `;
+        utils.toast('Failed to load admin stats', 'error');
+      }
+    }
+
+    // Initialize
+    loadStats();
+  </script>
+</body>
+</html>

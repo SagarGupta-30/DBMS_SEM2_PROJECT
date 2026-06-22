@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profile | SocialConnect</title>
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/components.css">
+  <style>
+    /* Instagram-style Profile */
+    .profile-card {
+      background: transparent;
+      border: none;
+      padding: var(--space-xl) 0;
+      margin-bottom: 0;
+      max-width: 750px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .profile-header-layout {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-3xl);
+      margin-bottom: var(--space-xl);
+      padding-bottom: var(--space-xl);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .profile-avatar-col {
+      flex-shrink: 0;
+    }
+    .profile-avatar-col .avatar-xl {
+      width: 150px;
+      height: 150px;
+      font-size: 3.5rem;
+    }
+    .profile-details {
+      flex: 1;
+      padding-top: var(--space-sm);
+    }
+    .profile-username-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-lg);
+      margin-bottom: var(--space-lg);
+      flex-wrap: wrap;
+    }
+    .profile-username-row h2 {
+      font-size: var(--font-size-xl);
+      font-weight: 400;
+    }
+    .profile-actions-row {
+      display: flex;
+      gap: var(--space-sm);
+    }
+    .ig-stats-row {
+      display: flex;
+      gap: var(--space-2xl);
+      margin-bottom: var(--space-lg);
+    }
+    .ig-stat {
+      font-size: var(--font-size-base);
+      color: var(--text-secondary);
+    }
+    .ig-stat strong {
+      color: var(--text-primary);
+      font-weight: 700;
+    }
+    .profile-bio {
+      font-size: var(--font-size-base);
+      color: var(--text-primary);
+      line-height: 1.5;
+      max-width: 500px;
+    }
+    .profile-bio .meta {
+      color: var(--text-tertiary);
+      font-size: var(--font-size-sm);
+      margin-top: var(--space-xs);
+    }
+    .phones-list {
+      margin-top: var(--space-sm);
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-sm);
+    }
+
+    /* Posts Section */
+    .posts-section-header {
+      display: flex;
+      justify-content: center;
+      border-top: 1px solid var(--border-subtle);
+      max-width: 750px;
+      margin: 0 auto var(--space-md);
+    }
+    .posts-tab {
+      padding: var(--space-md) var(--space-lg);
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+      color: var(--text-tertiary);
+      border-top: 1px solid transparent;
+      margin-top: -1px;
+      cursor: pointer;
+    }
+    .posts-tab.active {
+      color: var(--text-primary);
+      border-top-color: var(--text-primary);
+    }
+    #user-posts-container {
+      max-width: 750px;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 600px) {
+      .profile-header-layout {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: var(--space-lg);
+      }
+      .profile-avatar-col .avatar-xl {
+        width: 100px;
+        height: 100px;
+        font-size: 2.5rem;
+      }
+      .profile-username-row {
+        justify-content: center;
+      }
+      .profile-actions-row {
+        justify-content: center;
+      }
+      .ig-stats-row {
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-layout">
+    <main class="main-content" style="max-width: none;">
+      <div id="profile-container">
+        <div class="loading-center">
+          <div class="spinner"></div>
+        </div>
+      </div>
+
+      <!-- Posts Tab Header -->
+      <div class="posts-section-header">
+        <div class="posts-tab active">📷 Posts</div>
+      </div>
+
+      <!-- User's Posts Feed -->
+      <div id="user-posts-container">
+        <div class="loading-center">
+          <div class="spinner spinner-sm"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Edit Profile Modal -->
+  <div class="modal-overlay hidden" id="edit-profile-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Edit Profile</h3>
+        <button class="modal-close" onclick="closeEditModal()">&times;</button>
+      </div>
+      <form id="edit-profile-form">
+        <div class="form-group" style="margin-bottom: var(--space-md);">
+          <label class="form-label" for="edit-bio">Bio</label>
+          <textarea class="form-input" id="edit-bio" rows="3"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary btn-full">Save Changes</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Phone Manager Modal -->
+  <div class="modal-overlay hidden" id="phone-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Manage Phone Numbers</h3>
+        <button class="modal-close" onclick="closePhoneModal()">&times;</button>
+      </div>
+      <form id="add-phone-form" style="margin-bottom: var(--space-lg);">
+        <div class="form-group">
+          <label class="form-label" for="new-phone">Add Phone Number</label>
+          <div style="display: flex; gap: var(--space-sm);">
+            <input class="form-input" id="new-phone" placeholder="e.g. +1 555-0199" required>
+            <button type="submit" class="btn btn-primary btn-sm">Add</button>
+          </div>
+        </div>
+      </form>
+      <div id="modal-phones-list"></div>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/utils.js"></script>
+  <script>
+    if (!api.getToken()) {
+      window.location.href = 'index.html';
+    }
+
+    // Parse userId from Query String
+    const urlParams = new URLSearchParams(window.location.search);
+    const userId = urlParams.get('id') ? parseInt(urlParams.get('id')) : null;
+    const currentUser = api.getCurrentUser();
+    const isMe = !userId || userId === currentUser.userId;
+
+    // Load navigation
+    utils.loadNavigation(isMe ? 'profile' : '');
+
+    let profileData = null;
+
+    async function loadProfile() {
+      const container = document.getElementById('profile-container');
+      const endpoint = isMe ? '/users/me' : `/users/${userId}`;
+
+      try {
+        profileData = await api.get(endpoint);
+        const initials = utils.getInitials(profileData.username);
+        const avatar = initials;
+
+        let actionButtons = '';
+        if (isMe) {
+          actionButtons = `
+            <button class="btn btn-secondary btn-sm" onclick="openEditModal()">Edit Profile</button>
+            <button class="btn btn-outline btn-sm" onclick="openPhoneModal()">Phones (${profileData.phones ? profileData.phones.length : 0})</button>
+          `;
+        } else {
+          const followText = profileData.is_following ? 'Unfollow' : 'Follow';
+          const btnClass = profileData.is_following ? 'btn-secondary' : 'btn-primary';
+          actionButtons = `
+            <button class="btn ${btnClass} btn-sm" onclick="toggleFollow()">${followText}</button>
+            <button class="btn btn-outline btn-sm" onclick="startDirectMessage()">Message</button>
+          `;
+        }
+
+        // Render phone numbers if visible
+        let phonesHtml = '';
+        if (isMe && profileData.phones && profileData.phones.length > 0) {
+          phonesHtml = `
+            <div style="margin-top: var(--space-md);">
+              <span class="form-label" style="font-size: 11px;">Verified Numbers:</span>
+              <div class="phones-list">
+                ${profileData.phones.map(p => `<span class="badge badge-accent">${p.phone_number}</span>`).join('')}
+              </div>
+            </div>
+          `;
+        }
+
+        container.innerHTML = `
+          <div class="profile-card">
+            <div class="profile-header-layout">
+              <div class="profile-avatar-col">
+                <div class="story-ring">
+                  <div class="avatar avatar-xl">${avatar}</div>
+                </div>
+              </div>
+              <div class="profile-details">
+                <div class="profile-username-row">
+                  <h2>${profileData.username}</h2>
+                  <div class="profile-actions-row">
+                    ${actionButtons}
+                  </div>
+                </div>
+                <div class="ig-stats-row">
+                  <div class="ig-stat"><strong>${profileData.posts_count}</strong> posts</div>
+                  <div class="ig-stat"><strong>${profileData.followers_count}</strong> followers</div>
+                  <div class="ig-stat"><strong>${profileData.following_count}</strong> following</div>
+                </div>
+                <div class="profile-bio">
+                  ${profileData.bio || '<span style="color: var(--text-tertiary);">No bio yet.</span>'}
+                  ${profileData.join_date ? `<div class="meta">📅 Joined ${new Date(profileData.join_date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</div>` : ''}
+                </div>
+                ${phonesHtml}
+              </div>
+            </div>
+          </div>
+        `;
+
+        loadPosts();
+      } catch (err) {
+        container.innerHTML = `<div class="empty-state-title" style="color: var(--error);">Failed to load profile.</div>`;
+      }
+    }
+
+    async function loadPosts() {
+      const container = document.getElementById('user-posts-container');
+      const targetId = isMe ? currentUser.userId : userId;
+      try {
+        const posts = await api.get(`/users/${targetId}/posts`);
+        if (posts.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-state-icon">📷</div>
+              <div class="empty-state-title">No Posts Yet</div>
+            </div>`;
+          return;
+        }
+
+        container.innerHTML = posts.map(post => {
+          const initials = utils.getInitials(post.username);
+          const parsedContent = utils.parseHashtags(post.content);
+          
+          return `
+            <div class="post-card" data-id="${post.post_id}">
+              <div class="post-header">
+                <div class="story-ring">
+                  <div class="avatar avatar-md">${initials}</div>
+                </div>
+                <div class="post-user-info">
+                  <div class="post-username">${post.username}</div>
+                </div>
+              </div>
+              ${post.media_url ? `<img class="post-image" src="${post.media_url}" alt="Post image">` : ''}
+              <div class="post-actions" style="border-top: none; padding-top: var(--space-xs);">
+                <button class="post-action-btn ${post.is_liked ? 'liked' : ''}" style="pointer-events: none; font-size: 1.4rem; padding: var(--space-xs) 0;">
+                  <span>${post.is_liked ? '❤️' : '🤍'}</span>
+                </button>
+                <button class="post-action-btn" style="pointer-events: none; font-size: 1.4rem; padding: var(--space-xs) 0;">
+                  <span>💬</span>
+                </button>
+              </div>
+              <div style="font-weight: 600; font-size: 0.9rem; margin-bottom: var(--space-xs);">${post.likes_count} likes</div>
+              <div class="post-content" style="margin: 0 0 var(--space-xs);">
+                <span class="post-username" style="margin-right: 6px;">${post.username}</span>
+                ${parsedContent}
+              </div>
+              <div class="post-time">${utils.formatDate(post.created_at)}</div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        container.innerHTML = '<div class="empty-state-text">Failed to load posts.</div>';
+      }
+    }
+
+    // Follow / Unfollow user
+    async function toggleFollow() {
+      const isFollowing = profileData.is_following;
+      try {
+        if (isFollowing) {
+          await api.delete(`/users/${userId}/follow`);
+          utils.toast('Unfollowed successfully');
+        } else {
+          await api.post(`/users/${userId}/follow`);
+          utils.toast('Following user');
+        }
+        loadProfile();
+      } catch (err) {
+        utils.toast(err.message, 'error');
+      }
+    }
+
+    // Direct message redirection helper
+    function startDirectMessage() {
+      window.location.href = `messages.html?userId=${userId}`;
+    }
+
+    // Edit Profile Modal handlers
+    function openEditModal() {
+      document.getElementById('edit-bio').value = profileData.bio || '';
+      document.getElementById('edit-profile-modal').classList.remove('hidden');
+    }
+
+    function closeEditModal() {
+      document.getElementById('edit-profile-modal').classList.add('hidden');
+    }
+
+    document.getElementById('edit-profile-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const bio = document.getElementById('edit-bio').value;
+
+      try {
+        const res = await api.put('/users/me', { bio });
+        // Update local cache
+        const cached = api.getCurrentUser();
+        api.setCurrentUser(cached);
+
+        utils.toast('Profile updated successfully!');
+        closeEditModal();
+        loadProfile();
+      } catch (err) {
+        utils.toast(err.message, 'error');
+      }
+    });
+
+    // Phone Manager modal handlers
+    function openPhoneModal() {
+      document.getElementById('phone-modal').classList.remove('hidden');
+      renderModalPhones();
+    }
+
+    function closePhoneModal() {
+      document.getElementById('phone-modal').classList.add('hidden');
+    }
+
+    function renderModalPhones() {
+      const container = document.getElementById('modal-phones-list');
+      if (!profileData.phones || profileData.phones.length === 0) {
+        container.innerHTML = '<div class="empty-state-text" style="font-size:12px;">No phone numbers registered.</div>';
+        return;
+      }
+
+      container.innerHTML = profileData.phones.map(p => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: var(--space-sm) 0; border-bottom: 1px solid var(--border-subtle);">
+          <span style="font-family: monospace;">${p.phone_number}</span>
+          <button class="post-delete-btn" style="padding: 2px 6px;" onclick="deletePhone('${p.phone_number}')">🗑️ Remove</button>
+        </div>
+      `).join('');
+    }
+
+    document.getElementById('add-phone-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const input = document.getElementById('new-phone');
+      const phoneNumber = input.value.trim();
+
+      try {
+        await api.post('/users/me/phone', { phoneNumber });
+        utils.toast('Phone number verified & added.');
+        input.value = '';
+        
+        // Refresh local representation
+        if (!profileData.phones) profileData.phones = [];
+        profileData.phones.push({ phone_number: phoneNumber });
+        
+        renderModalPhones();
+        loadProfile();
+      } catch (err) {
+        utils.toast(err.message, 'error');
+      }
+    });
+
+    async function deletePhone(phoneNumber) {
+      if (!confirm(`Remove ${phoneNumber}?`)) return;
+      try {
+        await api.delete(`/users/me/phone/${encodeURIComponent(phoneNumber)}`);
+        utils.toast('Phone number removed.');
+        
+        profileData.phones = profileData.phones.filter(p => p.phone_number !== phoneNumber);
+        renderModalPhones();
+        loadProfile();
+      } catch (err) {
+        utils.toast(err.message, 'error');
+      }
+    }
+
+    // Load initial
+    loadProfile();
+  </script>
+</body>
+</html>
